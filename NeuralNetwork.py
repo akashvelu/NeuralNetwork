@@ -9,67 +9,80 @@ def relu(x):
 
 class NeuralNetwork:
 
-	# numLayers is number of layers in Neural Network, including the input layer and output layer
-	# there are (numLayers - 2) hidden layers
-	# we need (numLayers - 1) weights and biases
-	def __init__(self, numLayers, layerDims):
-		self.numLayers = numLayers
-		self.layerDims = layerDims
+    # numLayers is number of layers in Neural Network, including the input layer and output layer
+    # there are (numLayers - 2) hidden layers
+    # we need (numLayers - 1) weights and biases
+    def __init__(self, numLayers, layerDims):
+        self.numLayers = numLayers
+        self.layerDims = layerDims
 
-		self.weights = []
-		self.biases = []
-		for i in range(1, len(numLayers)):
-			# initialize weights to uniform random values between -1, 1 (np.random.rand returns values in [0, 1])
-			weightMatrix = 2 * np.random.rand(self.layerDims[i], self.layerDims[i - 1]) - 1
-			biasVector = 2 * np.random.rand(self.layerDims[i])
-			self.weights.append(weightMatrix)
-			self.biases.append(biasVector)
+        self.weights = []
+        self.biases = []
+        for i in range(1, numLayers):
+            # initialize weights to uniform random values between -1, 1 (np.random.rand returns values in [0, 1])
+            weightMatrix = 2 * np.random.rand(self.layerDims[i], self.layerDims[i - 1]) - 1
+            biasVector = 2 * np.random.rand(self.layerDims[i]) - 1
+            self.weights.append(weightMatrix)
+            self.biases.append(biasVector)
 
-	# forward pass algorithm
-	def forwardPass(self, input):
-		layerValues = []
-		layerValues.append(input)
-		for i in range(1, self.numLayers):
-			newLayer = np.dot(self.weights[i - 1], layerValues[i - 1]) + self.biases[i - 1]
-			this.layerValues.append(newLayer)
-		return layerValues
+    # forward pass algorithm
+    def forwardPass(self, input):
+        layerValues = []
+        layerValues.append(input)
+        for i in range(1, self.numLayers):
+            z = np.dot(self.weights[i - 1], layerValues[i - 1]) + self.biases[i - 1]
+            newLayer = sigmoid(z)
+            layerValues.append(newLayer)
+        return layerValues
 
+    def backPropagate(self, layers, expected):
+        deltas = []
+        biasGradients = []
+        weightJacobians = []
 
-	def backPropagation(self, layerValues, expectedOutput):
-		currLayerValues = layerValues[self.numLayers - 1]
-		biasGradients = []
-		layerGradients = []
-		weightJacobians = []
-		layerGradients.append(currLayerValues - expectedOutput)
-		biasGradients.append(currLayerValues * (1 - currLayerValues) * layerGradients[0])
-		weightJacobians.append(np.dot(biasGradients[0].T, currLayerValues))
+        currLayer = layers[self.numLayers - 1]
+        deltas.insert(0, (currLayer - expected) * currLayer * (1 - currLayer))
 
-		for l in range(self.numLayers - 2, 0, -1):
-			currLayerValues = layerValues[l]
-			inter = layerGradients[0] * layerValues[l + 1] * (1 - layerValues[l + 1])
-			layerGradients.insert(0, np.dot(self.weights[l + 1].T, inter))
-			biasGradients.insert(0, layerGradients[0] * (1 - currLayerValues) * currLayerValues)
-			# outer product
-			jacobian = np.dot(biasGradients[0].T, currLayerValues)
-			weightJacobians.insert(0, jacobian)
+        for l in range(self.numLayers - 1, 0, -1):
+            biasGradients.insert(0, deltas[0])
+            jacobian = np.outer(deltas[0], layers[l - 1])
+            weightJacobians.insert(0, jacobian)
 
-		return weightJacobians, biasGradients
+            nextDelta = np.dot(self.weights[l - 1].T, deltas[0]) * layers[l - 1] * (1 - layers[l-1])
+            deltas.insert(0, nextDelta)
+
+        return weightJacobians, biasGradients
 
 
-	def gradientDescent(self, weightJacobians, biasGradients, learningRate):
-		for i in range(len(self.weights)):
-			self.weights[i] -= (learningRate * weightJacobians)
-			self.biases[i] -= (learningRate* biasGradients)
+
+    def gradientDescent(self, learningRate, weightJacobians, biasGradients):
+
+        for i in range(len(weightJacobians)):
+            self.weights[i] -= (learningRate * weightJacobians[i])
+            self.biases[i] -= (learningRate * biasGradients[i])
 
 
-	def train():
-		return None
+    def train(self, trainingData, epochs, learningRate):
+        epoch = 0
+        trainingSetSize = len(trainingData)
 
-	def predict(self, input):
-		output = this.forwardPass(input)
-		return np.argmax(output), output
+        while (epoch < epochs):
+            print("Epoch: ", epoch)
+            for i in range(len(trainingData)):
+                currInput = trainingData[i][0]
+                currExpected = trainingData[i][1]
+                currLayers = self.forwardPass(currInput)
+                weightJacobians, biasGradients = self.backPropagate(currLayers, currExpected)
+                # print(biasGradients)
+                self.gradientDescent(learningRate, weightJacobians, biasGradients)
+            epoch += 1
+        return
 
-	def mse_error(self, output, expectedOutput):
-		diff = output - expectedOutput
-		return(np.dot(diff, diff))
-	
+
+    def predict(self, input):
+        output = self.forwardPass(input)[-1]
+        return np.argmax(output), output
+
+    def mse_error(self, output, expectedOutput):
+        diff = output - expectedOutput
+        return(np.dot(diff, diff))
